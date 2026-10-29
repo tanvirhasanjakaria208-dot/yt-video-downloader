@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YouTube Downloader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a1620; --card:#11202f; --field:#0a1620; --line:#1f3347;
+  --text:#f3f6f9; --muted:#8fa3b5; --accent:#f26a40; --link:#4fb3d9; --sel:#252a38;
+}
+:root[data-theme="light"]{
+  --bg:#f3f6f9; --card:#ffffff; --field:#f3f6f9; --line:#cfdae4;
+  --text:#0f2233; --muted:#5b7183; --accent:#e0562b; --link:#1b7fa8; --sel:#fdeee8;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:"Hind Siliguri",system-ui,sans-serif;font-size:18px;line-height:1.5}
+main{max-width:560px;margin:0 auto;padding:22px 16px 40px}
+header{display:flex;gap:12px;align-items:flex-start;justify-content:space-between}
+h1{font-size:30px;line-height:1.2;margin:0 0 10px;font-weight:700}
+.tools{display:flex;gap:8px;flex:none}
+.tools button{background:transparent;border:1.5px solid var(--line);color:var(--link);border-radius:14px;height:48px;padding:0 14px;font:inherit;font-size:18px;cursor:pointer}
+.sub{color:var(--muted);margin:0 0 22px}
+.panel{background:var(--card);border:1.5px solid var(--line);border-radius:22px;padding:16px;margin-bottom:20px}
+input[type=url]{width:100%;height:56px;background:var(--field);border:1.5px solid var(--line);border-radius:14px;color:var(--text);font:inherit;padding:0 16px;margin-bottom:14px}
+input::placeholder{color:var(--muted);opacity:.7}
+.row{display:flex;gap:12px}
+.ghost{background:var(--field);border:1.5px solid var(--line);color:var(--text);border-radius:14px;height:56px;padding:0 20px;font:inherit;cursor:pointer}
+.primary{flex:1;background:var(--accent);border:0;color:#fff;border-radius:14px;height:56px;font:inherit;font-weight:700;cursor:pointer;width:100%}
+.primary:disabled{opacity:.6;cursor:wait}
+button:focus-visible,input:focus-visible{outline:2px solid var(--link);outline-offset:2px}
+.note{border-left:4px solid var(--link);padding:2px 0 2px 14px;color:var(--muted);margin:0}
+#msg{margin:0 0 16px;padding:12px 14px;border-radius:14px;background:var(--card);border:1.5px solid var(--accent);display:none}
+.thumb{position:relative;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:16/9}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.dur{position:absolute;right:12px;bottom:10px;background:rgba(0,0,0,.7);color:#fff;border-radius:8px;padding:0 8px;font-size:16px}
+.title{font-weight:700;font-size:22px;line-height:1.35;margin:16px 0 4px;overflow-wrap:anywhere}
+.chan{color:var(--muted);margin:0 0 14px}
+.label{color:var(--muted);margin:0 0 10px}
+.opt{display:flex;align-items:center;gap:14px;border:1.5px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:12px;cursor:pointer}
+.opt input{display:none}
+.dot{width:26px;height:26px;border-radius:50%;background:#fff;border:2px solid #fff;flex:none}
+.opt.on{border-color:var(--accent);background:var(--sel)}
+.opt.on .dot{background:var(--accent);box-shadow:inset 0 0 0 5px #fff}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1 id="t_title"></h1>
+    <div class="tools">
+      <button id="langBtn" type="button"></button>
+      <button id="themeBtn" type="button" aria-label="Theme">◐</button>
+    </div>
+  </header>
+  <p class="sub" id="t_sub"></p>
+
+  <section class="panel">
+    <input id="url" type="url" inputmode="url" autocomplete="off" placeholder="https://www.youtube.com/watch?v=…">
+    <div class="row">
+      <button class="ghost" id="pasteBtn" type="button"></button>
+      <button class="primary" id="findBtn" type="button"></button>
+    </div>
+  </section>
+
+  <p id="msg" role="status"></p>
+
+  <section class="panel hidden" id="result">
+    <div class="thumb"><img id="thumb" alt=""><span class="dur" id="dur"></span></div>
+    <p class="title" id="vtitle"></p>
+    <p class="chan" id="chan"></p>
+    <p class="label" id="t_quality"></p>
+    <div id="opts"></div>
+    <button class="primary" id="dlBtn" type="button"></button>
+  </section>
+
+  <p class="note" id="t_note"></p>
+</main>
+
+<script>
+const I18N = {
+  bn: {
+    title: "ইউটিউব ভিডিও ডাউনলোডার",
+    sub: "ইউটিউব ভিডিও, শর্টস বা মিউজিক লিংক পেস্ট করুন।",
+    paste: "পেস্ট", find: "ভিডিও খুঁজুন", finding: "খোঁজা হচ্ছে…",
+    quality: "কোয়ালিটি বেছে নিন", download: "ডাউনলোড করুন",
+    preparing: "ফাইল তৈরি হচ্ছে, কিছুক্ষণ অপেক্ষা করুন…",
+    note: "শুধু নিজের ভিডিও অথবা অনুমতি আছে এমন ভিডিও ডাউনলোড করুন। কপিরাইট আইন মেনে চলুন।",
+    lang: "English", audio: "শুধু অডিও (MP3)",
+    waking: "সার্ভার চালু হচ্ছে, কয়েক সেকেন্ড লাগতে পারে…",
+    e: {
+      invalid: "এটা ইউটিউবের বৈধ লিংক নয়।",
+      bot: "ইউটিউব এই সার্ভারকে বট ভেবে আটকে দিয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন বা কুকিজ যোগ করুন।",
+      unavailable: "ভিডিওটি প্রাইভেট বা পাওয়া যাচ্ছে না।",
+      age: "বয়স-সীমাবদ্ধ ভিডিও, লগইন ছাড়া ডাউনলোড করা যাচ্ছে না।",
+      live: "লাইভ স্ট্রিম ডাউনলোড করা যায় না।",
+      toolong: "ভিডিওটি অনেক বড়। সর্বোচ্চ {m} মিনিট পর্যন্ত চলবে।",
+      busy: "সার্ভার এখন ব্যস্ত। একটু পরে আবার চেষ্টা করুন।",
+      failed: "ভিডিও আনা যায়নি। লিংক ঠিক আছে কিনা দেখে আবার চেষ্টা করুন।",
+      network: "সার্ভারের সাথে যোগাযোগ করা যাচ্ছে না।"
+    }
+  },
+  en: {
+    title: "YouTube Video Downloader",
+    sub: "Paste a YouTube video, Shorts or Music link.",
+    paste: "Paste", find: "Find video", finding: "Searching…",
+    quality: "Choose quality", download: "Download",
+    preparing: "Preparing your file, please wait…",
+    note: "Download only your own videos or videos you have permission to use. Follow copyright law.",
+    lang: "বাংলা", audio: "Audio only (MP3)",
+    waking: "Server is waking up, this can take a few seconds…",
+    e: {
+      invalid: "That is not a valid YouTube link.",
+      bot: "YouTube is blocking this server as a bot. Try again later or add cookies.",
+      unavailable: "This video is private or unavailable.",
+      age: "Age-restricted video; it can't be downloaded without signing in.",
+      live: "Live streams can't be downloaded.",
+      toolong: "This video is too long. The limit is {m} minutes.",
+      busy: "The server is busy. Try again in a moment.",
+      failed: "Couldn't fetch the video. Check the link and try again.",
+      network: "Can't reach the server."
+    }
+  }
+};
+
+const $ = id => document.getElementById(id);
+let lang = localStorage.getItem("lang") || "bn";
+let theme = localStorage.getItem("theme") || "dark";
+let current = null;     // {url, options}
+let selected = null;
+
+function t(){ return I18N[lang]; }
+
+function applyLang(){
+  const s = t();
+  document.documentElement.lang = lang;
+  $("t_title").textContent = s.title;
+  $("t_sub").textContent = s.sub;
+  $("pasteBtn").textContent = s.paste;
+  if(!$("findBtn").disabled) $("findBtn").textContent = s.find;
+  $("t_quality").textContent = s.quality;
+  $("dlBtn").textContent = s.download;
+  $("t_note").textContent = s.note;
+  $("langBtn").textContent = s.lang;
+  if(current) renderOptions();
+  localStorage.setItem("lang", lang);
+}
+function applyTheme(){
+  document.documentElement.dataset.theme = theme;
+  localStorage.setItem("theme", theme);
+}
+function showMsg(text){
+  const m = $("msg");
+  m.textContent = text || "";
+  m.style.display = text ? "block" : "none";
+}
+function fmtDur(sec){
+  if(!sec) return "";
+  const h = Math.floor(sec/3600), m = Math.floor(sec%3600/60), s = Math.floor(sec%60);
+  return h ? `${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}` : `${m}:${String(s).padStart(2,"0")}`;
+}
+function optLabel(o){
+  if(o.id === "mp3") return t().audio;
+  return (o.id === "hd" ? "HD" : "SD") + ` · ${o.height}p`;
+}
+function renderOptions(){
+  const box = $("opts");
+  box.innerHTML = "";
+  current.options.forEach(o => {
+    const el = document.createElement("label");
+    el.className = "opt" + (o.id === selected ? " on" : "");
+    el.innerHTML = `<input type="radio" name="q"><span class="dot"></span><span></span>`;
+    el.lastChild.textContent = optLabel(o);
+    el.addEventListener("click", e => { e.preventDefault(); selected = o.id; renderOptions(); });
+    box.appendChild(el);
+  });
+}
+function errText(code, data){
+  const s = t().e;
+  return (s[code] || s.failed).replace("{m}", (data && data.max_minutes) || "");
+}
+
+async function find(){
+  const url = $("url").value.trim();
+  showMsg(""); $("result").classList.add("hidden"); current = null;
+  if(!url){ showMsg(errText("invalid")); return; }
+  $("findBtn").disabled = true; $("findBtn").textContent = t().finding;
+  const wake = setTimeout(() => showMsg(t().waking), 4000);
+  try{
+    const r = await fetch("/api/info", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({url})});
+    const d = await r.json();
+    clearTimeout(wake);
+    if(!r.ok){ showMsg(errText(d.error, d)); return; }
+    showMsg("");
+    current = {url, options: d.options};
+    selected = d.options[0].id;
+    $("thumb").src = d.thumbnail || "";
+    $("dur").textContent = fmtDur(d.duration);
+    $("vtitle").textContent = d.title || "";
+    $("chan").textContent = d.channel || "";
+    renderOptions();
+    $("result").classList.remove("hidden");
+    $("result").scrollIntoView({behavior:"smooth", block:"start"});
+  }catch(e){
+    clearTimeout(wake); showMsg(errText("network"));
+  }finally{
+    $("findBtn").disabled = false; $("findBtn").textContent = t().find;
+  }
+}
+
+function download(){
+  if(!current) return;
+  const token = Math.random().toString(36).slice(2, 12);
+  const btn = $("dlBtn");
+  btn.disabled = true; btn.textContent = t().preparing;
+  document.cookie = "dl_done=; Max-Age=0; path=/";
+  const qs = new URLSearchParams({url: current.url, q: selected, t: token});
+  const frame = document.createElement("iframe");
+  frame.style.display = "none";
+  frame.src = "/api/download?" + qs;
+  document.body.appendChild(frame);
+
+  let tries = 0;
+  const timer = setInterval(() => {
+    tries++;
+    if(document.cookie.includes("dl_done=" + token) || tries > 600){
+      clearInterval(timer);
+      btn.disabled = false; btn.textContent = t().download;
+      setTimeout(() => frame.remove(), 5000);
+    }
+  }, 700);
+  // if the server returned an error page instead of a file, show it
+  frame.addEventListener("load", () => {
+    try{
+      const txt = frame.contentDocument && frame.contentDocument.body && frame.contentDocument.body.textContent;
+      if(txt && txt.trim().startsWith("{")){
+        const d = JSON.parse(txt);
+        clearInterval(timer);
+        btn.disabled = false; btn.textContent = t().download;
+        showMsg(errText(d.error, d));
+      }
+    }catch(_){}
+  });
+}
+
+$("langBtn").onclick = () => { lang = lang === "bn" ? "en" : "bn"; applyLang(); };
+$("themeBtn").onclick = () => { theme = theme === "dark" ? "light" : "dark"; applyTheme(); };
+$("findBtn").onclick = find;
+$("dlBtn").onclick = download;
+$("url").addEventListener("keydown", e => { if(e.key === "Enter") find(); });
+$("pasteBtn").onclick = async () => {
+  try{ $("url").value = (await navigator.clipboard.readText()).trim(); }catch(_){ $("url").focus(); }
+};
+
+applyTheme(); applyLang();
+</script>
+</body>
+                                   </html>
